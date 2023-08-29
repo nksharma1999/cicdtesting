@@ -1,0 +1,50 @@
+pipeline {
+    agent any
+    tools {
+        nodejs "node"
+    }
+    
+    stages {
+        stage('Build') {
+            steps {
+                // Use the checkout step to clone the repository and navigate to its directory
+                checkout([$class: 'GitSCM', 
+                          branches: [[name: '*/main']],
+                          userRemoteConfigs: [[url: 'https://github.com/nksharma1999/cicdtesting.git']]])
+                
+                // Navigate to the cloned repository directory
+                dir('cicdtesting') {
+                    // Install dependencies
+                    bat 'npm install'
+                    
+                    // Create build files
+                    bat 'npm run build'
+                    
+                    // Archive the build artifacts
+                    // archiveArtifacts artifacts: 'build/**', allowEmptyArchive: true
+                    
+                }
+                
+            }
+        }
+        
+        stage('Deploy'){
+            steps{
+                // Navigate back to the root directory
+                bat 'cd ..'
+                // Stop any existing PM2 serve process (with error handling)
+                bat 'node ./node_modules/pm2/bin/pm2 delete static-page-server-3001 || true'
+                // run build file
+                bat 'node ./node_modules/pm2/bin/pm2 serve build 3001 --spa'
+            }
+        }
+    }
+    
+    post {
+        always {
+            // Archive the build artifacts
+            archiveArtifacts artifacts: 'build/**', allowEmptyArchive: true
+            
+        }
+    }
+}
